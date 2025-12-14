@@ -1,4 +1,5 @@
 import 'package:final_project_section_2_group_11/firebase_options.dart';
+import 'package:final_project_section_2_group_11/screens/add_expense_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -22,6 +23,9 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
       ),
       home: const HomeScreen(),
+      routes: {
+        '/add': (context) => const AddExpenseScreen(),
+},
     );
   }
 }
