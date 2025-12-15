@@ -17,16 +17,28 @@ class Expense {
     this.description,
   });
 
+  /// Convert Firestore document to Expense object
   factory Expense.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Expense(
       id: doc.id,
       name: data['name'],
-      amount: data['amount'].toDouble(),
+      amount: (data['amount'] as num).toDouble(),
       date: (data['date'] as Timestamp).toDate(),
       category: data['category'],
       description: data['description'],
     );
   }
-}
 
+  /// Convert Expense object to Map (for Firestore)
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'amount': amount,
+      'date': date,
+      'category': category,
+      'description': description,
+      'createdAt': DateTime.now(),
+    };
+  }
+}

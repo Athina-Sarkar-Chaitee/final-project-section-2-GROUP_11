@@ -4,22 +4,22 @@ class ExpenseService {
   final CollectionReference expenses =
       FirebaseFirestore.instance.collection('expenses');
 
-  // Add expense
+  /// Add new expense
   Future<void> addExpense(Map<String, dynamic> data) async {
     await expenses.add(data);
   }
 
-  // Delete expense
+  /// Delete expense by document ID
   Future<void> deleteExpense(String id) async {
     await expenses.doc(id).delete();
   }
 
-  // Update expense
+  /// Update expense by document ID
   Future<void> updateExpense(String id, Map<String, dynamic> data) async {
     await expenses.doc(id).update(data);
   }
 
-  // Stream expenses (real-time)
+  /// Get real-time stream of expenses ordered by date (descending)
   Stream<QuerySnapshot> getExpenses() {
     return expenses.orderBy('date', descending: true).snapshots();
   }
