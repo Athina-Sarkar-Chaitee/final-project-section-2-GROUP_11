@@ -219,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             confirmDismiss: (direction) async {
                               if (direction ==
                                   DismissDirection.startToEnd) {
-                                // EDIT
+                                // EDIT item
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
