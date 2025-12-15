@@ -3,47 +3,31 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // SIGN UP
-  Future<String?> signUp({
-    required String email,
-    required String password,
-  }) async {
+  // SIGN UP (NO EMAIL VERIFICATION)
+  Future<User?> signUp(String email, String password) async {
     try {
-      UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
+      UserCredential result = await _auth
+          .createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      await userCredential.user!.sendEmailVerification();
-      await _auth.signOut();
-
-      return 'Verification email sent. Please verify before login.';
-    } on FirebaseAuthException catch (e) {
-      return e.message;
+      return result.user;
+    } catch (e) {
+      rethrow;
     }
   }
 
   // LOGIN
-  Future<String?> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<User?> login(String email, String password) async {
     try {
-      UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
+      UserCredential result = await _auth
+          .signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      if (!userCredential.user!.emailVerified) {
-        await _auth.signOut();
-        return 'Please verify your email first.';
-      }
-
-      return null;
-    } on FirebaseAuthException catch (e) {
-      return e.message;
+      return result.user;
+    } catch (e) {
+      rethrow;
     }
   }
 

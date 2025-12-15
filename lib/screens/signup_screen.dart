@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'login_screen.dart';
+import 'home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -10,8 +12,9 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   final AuthService authService = AuthService();
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   bool loading = false;
 
@@ -25,13 +28,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
           children: [
             TextField(
               controller: emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: const InputDecoration(
+                labelText: 'Email',
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextField(
               controller: passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
               obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+              ),
             ),
             const SizedBox(height: 20),
             loading
@@ -39,26 +46,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 : ElevatedButton(
                     onPressed: () async {
                       setState(() => loading = true);
+                      try {
+                        await authService.signUp(
+                          emailController.text.trim(),
+                          passwordController.text.trim(),
+                        );
 
-                      String? result = await authService.signUp(
-                        email: emailController.text.trim(),
-                        password: passwordController.text.trim(),
-                      );
-
-                      setState(() => loading = false);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(result ?? 'Success')),
-                      );
-
-                      if (result != null) {
-                        Navigator.pop(context);
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const HomeScreen(),
+                          ),
+                          (route) => false,
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString())),
+                        );
                       }
+                      setState(() => loading = false);
                     },
-                    child: const Text('Create Account'),
+                    child: const Text('Sign Up'),
                   ),
+            const SizedBox(height: 12),
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(),
+                  ),
+                );
+              },
               child: const Text('Already have an account? Login'),
             ),
           ],
