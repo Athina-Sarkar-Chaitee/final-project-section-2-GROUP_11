@@ -18,8 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String searchQuery = '';
   String filterCategory = 'All';
-  bool sortByAmount = false;
-  bool sortByDate = true;
+  String sortOption = 'date_desc'; // Options: date_desc, amount_desc, amount_asc
 
   final categories = [
     'All',
@@ -38,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Expense Tracker'),
         backgroundColor: Colors.blueAccent,
         actions: [
-          // 🔴 LOGOUT BUTTON (STEP 5)
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -87,7 +85,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Expense list
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: service.getExpenses(),
@@ -98,17 +95,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 List<QueryDocumentSnapshot> docs = snapshot.data!.docs;
 
-                // Filter by category
-                if (filterCategory != 'All') {
-                  docs = docs
-                      .where((doc) => doc['category'] == filterCategory)
-                      .toList();
-                }
+                // Filter by category (safe, case-insensitive)
+                docs = docs.where((doc) {
+                  final cat = (doc['category'] ?? 'Other').toString();
+                  return filterCategory == 'All' ||
+                      cat.toLowerCase() == filterCategory.toLowerCase();
+                }).toList();
 
                 // Search filter
                 if (searchQuery.isNotEmpty) {
                   docs = docs
-                      .where((doc) => doc['name']
+                      .where((doc) => (doc['name'] ?? '')
                           .toString()
                           .toLowerCase()
                           .contains(searchQuery.toLowerCase()))
@@ -117,14 +114,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Sorting
                 docs.sort((a, b) {
-                  if (sortByDate) {
-                    return (b['date'] as Timestamp)
-                        .compareTo(a['date'] as Timestamp);
-                  } else if (sortByAmount) {
-                    return (b['amount'] as num)
-                        .compareTo(a['amount'] as num);
+                  switch (sortOption) {
+                    case 'amount_desc':
+                      return (b['amount'] as num)
+                          .compareTo(a['amount'] as num);
+                    case 'amount_asc':
+                      return (a['amount'] as num)
+                          .compareTo(b['amount'] as num);
+                    case 'date_desc':
+                    default:
+                      return (b['date'] as Timestamp)
+                          .compareTo(a['date'] as Timestamp);
                   }
-                  return 0;
                 });
 
                 // Totals
@@ -132,15 +133,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 Map<String, double> categoryTotals = {};
 
                 for (var doc in docs) {
-                  double amt = (doc['amount'] as num).toDouble();
+                  double amt = (doc['amount'] ?? 0).toDouble();
                   total += amt;
-                  String cat = doc['category'];
+                  String cat = (doc['category'] ?? 'Other');
                   categoryTotals[cat] = (categoryTotals[cat] ?? 0) + amt;
+                }
+
+                if (docs.isEmpty) {
+                  return const Center(child: Text('No expenses found'));
                 }
 
                 return Column(
                   children: [
-                    // Totals card
+                    // Total card
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Card(
@@ -149,12 +154,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(12.0),
+                          padding: const EdgeInsets.all(12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Total Expense: ৳ $total',
+                                'Total Expense: ৳ ${total.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
@@ -162,17 +167,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               Wrap(
-                                spacing: 10,
-                                children: categoryTotals.entries
-                                    .map(
-                                      (e) => Chip(
-                                        backgroundColor: Colors.blue[100],
-                                        label: Text(
-                                          '${e.key}: ৳ ${e.value.toStringAsFixed(2)}',
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
+                                spacing: 8,
+                                children: categoryTotals.entries.map((e) {
+                                  return Chip(
+                                    backgroundColor: Colors.blue[100],
+                                    label: Text(
+                                      '${e.key}: ৳ ${e.value.toStringAsFixed(2)}',
+                                    ),
+                                  );
+                                }).toList(),
                               ),
                             ],
                           ),
@@ -186,7 +189,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: docs.map((doc) {
                           return Dismissible(
                             key: Key(doc.id),
+
+                            // LEFT → RIGHT (EDIT)
                             background: Container(
+                              color: Colors.green,
+                              alignment: Alignment.centerLeft,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: const Icon(
+                                Icons.edit,
+                                color: Colors.white,
+                              ),
+                            ),
+
+                            // RIGHT → LEFT (DELETE)
+                            secondaryBackground: Container(
                               color: Colors.redAccent,
                               alignment: Alignment.centerRight,
                               padding:
@@ -196,15 +213,57 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: Colors.white,
                               ),
                             ),
-                            direction: DismissDirection.endToStart,
-                            onDismissed: (direction) {
-                              service.deleteExpense(doc.id);
+
+                            direction: DismissDirection.horizontal,
+
+                            confirmDismiss: (direction) async {
+                              if (direction ==
+                                  DismissDirection.startToEnd) {
+                                // EDIT
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddExpenseScreen(
+                                      expenseId: doc.id,
+                                      initialData: doc,
+                                    ),
+                                  ),
+                                );
+                                return false;
+                              } else {
+                                // DELETE CONFIRMATION
+                                return await showDialog(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title:
+                                        const Text('Delete Expense'),
+                                    content: const Text(
+                                        'Are you sure you want to delete this expense?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            },
+
+                            onDismissed: (_) async {
+                              await service.deleteExpense(doc.id);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Expense deleted'),
-                                ),
+                                    content: Text('Expense deleted')),
                               );
                             },
+
                             child: Card(
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
@@ -213,27 +272,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: ListTile(
                                 title: Text(
-                                  doc['name'],
+                                  doc['name'] ?? '',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold),
                                 ),
-                                subtitle: Text(doc['category']),
+                                subtitle: Text(doc['category'] ?? 'Other'),
                                 trailing: Text(
-                                  '৳ ${doc['amount']}',
+                                  '৳ ${(doc['amount'] ?? 0).toStringAsFixed(2)}',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold),
                                 ),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AddExpenseScreen(
-                                        expenseId: doc.id,
-                                        initialData: doc,
-                                      ),
-                                    ),
-                                  );
-                                },
                               ),
                             ),
                           );
@@ -250,7 +298,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Filter Dialog
   void _showFilterDialog() {
     showDialog(
       context: context,
@@ -258,8 +305,8 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Filter by Category'),
         content: SizedBox(
           width: double.maxFinite,
+          height: 250, // Fixed height to avoid Web intrinsic error
           child: ListView(
-            shrinkWrap: true,
             children: categories.map((cat) {
               return RadioListTile(
                 title: Text(cat),
@@ -277,40 +324,47 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Sort Dialog
   void _showSortDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Sort Expenses'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile(
-              title: const Text('Date (Newest first)'),
-              value: 'date',
-              groupValue: sortByDate ? 'date' : 'amount',
-              onChanged: (val) {
-                setState(() {
-                  sortByDate = true;
-                  sortByAmount = false;
-                });
-                Navigator.pop(context);
-              },
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile(
+                  title: const Text('Date (Newest first)'),
+                  value: 'date_desc',
+                  groupValue: sortOption,
+                  onChanged: (_) {
+                    setState(() => sortOption = 'date_desc');
+                    Navigator.pop(context);
+                  },
+                ),
+                RadioListTile(
+                  title: const Text('Amount (High → Low)'),
+                  value: 'amount_desc',
+                  groupValue: sortOption,
+                  onChanged: (_) {
+                    setState(() => sortOption = 'amount_desc');
+                    Navigator.pop(context);
+                  },
+                ),
+                RadioListTile(
+                  title: const Text('Amount (Low → High)'),
+                  value: 'amount_asc',
+                  groupValue: sortOption,
+                  onChanged: (_) {
+                    setState(() => sortOption = 'amount_asc');
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
             ),
-            RadioListTile(
-              title: const Text('Amount (High to Low)'),
-              value: 'amount',
-              groupValue: sortByDate ? 'date' : 'amount',
-              onChanged: (val) {
-                setState(() {
-                  sortByDate = false;
-                  sortByAmount = true;
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
