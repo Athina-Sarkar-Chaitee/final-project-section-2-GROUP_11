@@ -73,7 +73,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: category,
+                initialValue: category,
                 decoration: InputDecoration(
                   labelText: 'Category',
                   border: OutlineInputBorder(

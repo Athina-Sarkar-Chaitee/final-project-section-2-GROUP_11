@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/expense_service.dart';
+import '../services/auth_service.dart';
 import 'add_expense_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,6 +14,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ExpenseService service = ExpenseService();
+  final AuthService authService = AuthService();
 
   String searchQuery = '';
   String filterCategory = 'All';
@@ -35,6 +38,18 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Expense Tracker'),
         backgroundColor: Colors.blueAccent,
         actions: [
+          // 🔴 LOGOUT BUTTON (STEP 5)
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await authService.signOut();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,
@@ -65,11 +80,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 labelText: 'Search by name',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onChanged: (val) => setState(() => searchQuery = val),
             ),
           ),
+
           // Expense list
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
@@ -104,7 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     return (b['date'] as Timestamp)
                         .compareTo(a['date'] as Timestamp);
                   } else if (sortByAmount) {
-                    return (b['amount'] as num).compareTo(a['amount'] as num);
+                    return (b['amount'] as num)
+                        .compareTo(a['amount'] as num);
                   }
                   return 0;
                 });
@@ -112,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Totals
                 double total = 0;
                 Map<String, double> categoryTotals = {};
+
                 for (var doc in docs) {
                   double amt = (doc['amount'] as num).toDouble();
                   total += amt;
@@ -137,17 +156,22 @@ class _HomeScreenState extends State<HomeScreen> {
                               Text(
                                 'Total Expense: ৳ $total',
                                 style: const TextStyle(
-                                    fontSize: 20, fontWeight: FontWeight.bold),
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Wrap(
                                 spacing: 10,
                                 children: categoryTotals.entries
-                                    .map((e) => Chip(
-                                          backgroundColor: Colors.blue[100],
-                                          label: Text(
-                                              '${e.key}: ৳ ${e.value.toStringAsFixed(2)}'),
-                                        ))
+                                    .map(
+                                      (e) => Chip(
+                                        backgroundColor: Colors.blue[100],
+                                        label: Text(
+                                          '${e.key}: ৳ ${e.value.toStringAsFixed(2)}',
+                                        ),
+                                      ),
+                                    )
                                     .toList(),
                               ),
                             ],
@@ -155,6 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+
                     // Expense list
                     Expanded(
                       child: ListView(
@@ -166,26 +191,32 @@ class _HomeScreenState extends State<HomeScreen> {
                               alignment: Alignment.centerRight,
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
-                              child: const Icon(Icons.delete,
-                                  color: Colors.white),
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
                             ),
                             direction: DismissDirection.endToStart,
                             onDismissed: (direction) {
                               service.deleteExpense(doc.id);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Expense deleted')),
+                                  content: Text('Expense deleted'),
+                                ),
                               );
                             },
                             child: Card(
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: ListTile(
-                                title: Text(doc['name'],
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                title: Text(
+                                  doc['name'],
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
                                 subtitle: Text(doc['category']),
                                 trailing: Text(
                                   '৳ ${doc['amount']}',
